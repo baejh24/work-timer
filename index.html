@@ -108,7 +108,7 @@
     .task-manage-item.dragging { opacity: 0.4; cursor: grabbing; }
     .task-manage-item.drag-over { border: 2px dashed var(--primary); background: #eef4fb; }
     .drag-handle { color: #bbb; font-size: 1.1rem; margin-right: 10px; cursor: grab; }
-    .add-area { display: flex; gap: 12px; margin-top: 24px; flex-shrink: 0; }
+    .add-area { display: flex; gap: 12px; margin-top: 24px; flex-shrink: 0; flex-wrap: wrap; }
     input[type="text"] {
       flex: 1; padding: 14px; border: 1px solid #ddd;
       border-radius: 10px; font-size: 16px;
@@ -183,7 +183,7 @@
       <button onclick="switchTab(0)" style="background:none;border:1px solid #ddd;color:#555;padding:6px 12px;border-radius:8px;font-size:14px;cursor:pointer;">← 돌아가기</button>
       <h2 style="margin:0;">업무 목록 관리</h2>
     </div>
-    <div id="manageList" style="overflow-y:auto;flex:1;"></div>
+    <div id="manageList"></div>
     <div class="add-area">
       <input type="text" id="newTask" placeholder="새 업무 이름 입력 (예: 코드 리뷰)">
       <button onclick="addNewTask()">추가하기</button>
