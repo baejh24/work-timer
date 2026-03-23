@@ -197,7 +197,7 @@
     </div>
     <div id="manageList"></div>
     <div class="add-area">
-      <input type="text" id="newTask" placeholder="새 업무 이름 입력 (예: 코드 리뷰)">
+      <input type="text" id="newTask" placeholder="새 업무 이름 입력 (예: 코드 리뷰)" onkeydown="if(event.key==='Enter') addNewTask()">
       <button onclick="addNewTask()">추가하기</button>
     </div>
   </div>
