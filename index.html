@@ -313,7 +313,11 @@ function listenData() {
       if (data.tasks) tasks = data.tasks;
       if (data.logs) logs = data.logs;
     }
-    renderTaskButtons(); renderCalendar(); renderLogs();
+    renderTaskButtons();
+    renderCalendar();
+    renderLogs();
+    const tab1 = document.getElementById('tab1');
+    if (tab1 && tab1.style.display !== 'none') renderManageList();
   });
 }
 
@@ -375,9 +379,9 @@ function renderTaskButtons() {
 }
 async function recordTime(taskName) {
   const now = new Date();
-  logs.unshift({ task: taskName, timestamp: now.toLocaleString('ko-KR', { year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true }), rawTime: now.getTime() });
-  if (logs.length > 100) logs.pop();
-  await saveLogs();
+  const newLog = { task: taskName, timestamp: now.toLocaleString('ko-KR', { year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true }), rawTime: now.getTime() };
+  const newLogs = [newLog, ...logs].slice(0, 100);
+  await setDoc(doc(db, 'users', currentUser.uid), { logs: newLogs }, { merge: true });
 }
 
 // ---- LOGS ----
@@ -399,15 +403,15 @@ function renderLogs() {
 window.clearAllLogs = async function() {
   const label = document.getElementById('logDateLabel').textContent;
   if (!confirm(`"${label}"의 기록을 전체 삭제할까요?`)) return;
-  logs = logs.filter(l => toDateStr(new Date(l.rawTime)) !== selectedDateStr);
-  await saveLogs();
+  const newLogs = logs.filter(l => toDateStr(new Date(l.rawTime)) !== selectedDateStr);
+  await setDoc(doc(db, 'users', currentUser.uid), { logs: newLogs }, { merge: true });
 };
 window.deleteLog = async function(rawTime) {
   const log = logs.find(l => l.rawTime == rawTime);
   if (!log) return;
   if (!confirm(`"${log.task}" 기록을 정말 삭제할까요?`)) return;
-  logs = logs.filter(l => l.rawTime != rawTime);
-  await saveLogs();
+  const newLogs = logs.filter(l => l.rawTime != rawTime);
+  await setDoc(doc(db, 'users', currentUser.uid), { logs: newLogs }, { merge: true });
 };
 
 // ---- MANAGE ----
@@ -434,8 +438,10 @@ function enableDragSort(container) {
     div.addEventListener('drop', async e => {
       e.preventDefault(); const ti = parseInt(div.dataset.index);
       if (dragSrcIndex === null || dragSrcIndex === ti) return;
-      const moved = tasks.splice(dragSrcIndex, 1)[0]; tasks.splice(ti, 0, moved);
-      await saveTasks();
+      const newTasks = [...tasks];
+      const moved = newTasks.splice(dragSrcIndex, 1)[0];
+      newTasks.splice(ti, 0, moved);
+      await setDoc(doc(db, 'users', currentUser.uid), { tasks: newTasks }, { merge: true });
     });
     handle.addEventListener('touchstart', e => {
       e.preventDefault(); touchSrcIndex = i; touchDragEl = div; div.classList.add('dragging');
@@ -461,8 +467,10 @@ function enableDragSort(container) {
       if (target) {
         const ti = parseInt(target.dataset.index);
         if (touchSrcIndex !== null && touchSrcIndex !== ti) {
-          const moved = tasks.splice(touchSrcIndex, 1)[0]; tasks.splice(ti, 0, moved);
-          await saveTasks();
+          const newTasks = [...tasks];
+          const moved = newTasks.splice(touchSrcIndex, 1)[0];
+          newTasks.splice(ti, 0, moved);
+          await setDoc(doc(db, 'users', currentUser.uid), { tasks: newTasks }, { merge: true });
         }
       }
       touchDragEl = null; touchSrcIndex = null;
@@ -474,7 +482,9 @@ window.addNewTask = async function() {
   const name = input.value.trim();
   if (!name) { alert('업무 이름을 입력해주세요!'); return; }
   if (tasks.includes(name)) { alert('이미 존재하는 업무예요!'); return; }
-  tasks.push(name); await saveTasks(); input.value = '';
+  const newTasks = [...tasks, name];
+  await setDoc(doc(db, 'users', currentUser.uid), { tasks: newTasks }, { merge: true });
+  input.value = '';
 };
 window.editTask = function(index, btn) {
   const div = btn.closest('.task-manage-item');
@@ -489,13 +499,16 @@ window.editTask = function(index, btn) {
     const newName = input.value.trim();
     if (!newName) { alert('업무 이름을 입력해주세요!'); return; }
     if (newName !== currentName && tasks.includes(newName)) { alert('이미 존재하는 업무예요!'); return; }
-    tasks[index] = newName; await saveTasks();
+    const newTasks = [...tasks];
+    newTasks[index] = newName;
+    await setDoc(doc(db, 'users', currentUser.uid), { tasks: newTasks }, { merge: true });
   }
   input.addEventListener('keydown', e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') renderManageList(); });
 };
 window.deleteTask = async function(index) {
   if (!confirm(`"${tasks[index]}" 업무를 정말 삭제할까요?`)) return;
-  tasks.splice(index, 1); await saveTasks();
+  const newTasks = tasks.filter((_, i) => i !== index);
+  await setDoc(doc(db, 'users', currentUser.uid), { tasks: newTasks }, { merge: true });
 };
 
 // ---- EDIT MODAL ----
@@ -541,9 +554,10 @@ window.saveEditLog = async function() {
   const idx = logs.findIndex(l => l.rawTime == editTargetRawTime); if (idx === -1) return;
   const newTask = document.getElementById('editTask').value.trim(); if (!newTask) return;
   const d = new Date(logs[idx].rawTime); d.setHours(pickH, pickM, 0, 0);
-  logs[idx].rawTime = d.getTime(); logs[idx].task = newTask;
-  logs[idx].timestamp = d.toLocaleString('ko-KR', { year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true });
-  await saveLogs(); window.closeEditModal();
+  const newLogs = [...logs];
+  newLogs[idx] = { ...newLogs[idx], rawTime: d.getTime(), task: newTask, timestamp: d.toLocaleString('ko-KR', { year:'numeric', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit', hour12:true }) };
+  await setDoc(doc(db, 'users', currentUser.uid), { logs: newLogs }, { merge: true });
+  window.closeEditModal();
 };
 </script>
 </body>
