@@ -226,7 +226,7 @@
     </div>
     <div class="modal-field">
       <label>활동</label>
-      <input type="text" id="editTask">
+      <input type="text" id="editTask" onkeydown="if(event.key==='Enter') saveEditLog()">
     </div>
     <div class="modal-actions">
       <button class="btn-cancel-modal" onclick="closeEditModal()">취소</button>
