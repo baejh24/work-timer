@@ -16,7 +16,7 @@
       overflow: hidden;
     }
     .tab-content {
-      padding: 24px;
+      padding: 8px 24px 24px;
       display: flex; flex-direction: column;
     }
     /* CLOCK */
@@ -86,9 +86,9 @@
     }
     .task-btn:active { transform: scale(0.95); }
     /* LOG */
-    .log-list { list-style: none; padding: 0; }
+    .log-list { list-style: none; padding: 0; margin-top: 0; }
     .log-item {
-      background: #f8f9fa; padding: 14px 18px; margin: 8px 0;
+      background: #f8f9fa; padding: 14px 18px; margin: 0 0 8px;
       border-radius: 10px; display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center; gap: 12px; border-left: 5px solid var(--primary);
@@ -149,6 +149,28 @@
     }
     .time-picker-col button:hover { background: #e2e8f0; }
     .time-sep { font-size: 1.4rem; font-weight: 700; color: #aaa; padding-bottom: 4px; }
+
+    /* MEMO/CALENDAR SUB TABS */
+    .sub-tabs {
+      display: flex; gap: 4px; margin-bottom: 16px;
+      background: #f0f4f8; border-radius: 10px; padding: 4px; flex-shrink: 0;
+    }
+    .sub-tab {
+      flex: 1; padding: 8px; border: none; border-radius: 7px;
+      background: transparent; color: #888; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
+    }
+    .sub-tab.active { background: white; color: #2c3e50; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .memo-area {
+      flex: 1; width: 100%; border: 1px solid #eee; border-radius: 10px;
+      padding: 14px; font-size: 15px; font-family: inherit; resize: none;
+      outline: none; color: #333; line-height: 1.6; box-sizing: border-box;
+      min-height: 180px;
+    }
+    .memo-area:focus { border-color: var(--primary); }
+    .memo-save-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-shrink: 0; }
+    .memo-date-label { font-size: 12px; color: #aaa; }
   </style>
 </head>
 <body>
@@ -172,18 +194,32 @@
       <button class="gear-btn" onclick="switchTab(1)" title="업무 목록 관리">⚙️</button>
     </div>
 
-    <div class="calendar-wrap">
-      <div class="cal-nav">
-        <button onclick="calNav(-1)">‹</button>
-        <span class="cal-month-label" id="calMonthLabel"></span>
-        <button onclick="calNav(1)">›</button>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
+    <!-- MEMO / CALENDAR SUB TABS -->
+    <div class="sub-tabs">
+      <button class="sub-tab active" id="subTabMemo" onclick="switchSubTab('memo')">📝 메모</button>
+      <button class="sub-tab" id="subTabCal" onclick="switchSubTab('cal')">📅 달력</button>
     </div>
 
-    <div class="task-grid" id="taskGrid"></div>
+    <!-- MEMO PANEL -->
+    <div id="memoPanel">
+      <textarea class="memo-area" id="memoText" placeholder="오늘의 메모를 입력하세요..."></textarea>
+    </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;flex-shrink:0;">
+    <!-- CALENDAR PANEL -->
+    <div id="calPanel" style="display:none;">
+      <div class="calendar-wrap">
+        <div class="cal-nav">
+          <button onclick="calNav(-1)">‹</button>
+          <span class="cal-month-label" id="calMonthLabel"></span>
+          <button onclick="calNav(1)">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+    </div>
+
+    <div class="task-grid" id="taskGrid" style="margin-top:20px;"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0 20px;flex-shrink:0;">
       <h3 style="margin:0;">📋 <span id="logDateLabel">오늘</span>의 기록 로그</h3>
       <button onclick="clearAllLogs()" style="background:#f08080;color:white;border:none;padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;">전체 삭제</button>
     </div>
@@ -255,6 +291,7 @@ const db = getFirestore(app);
 
 let tasks = ["회의 준비", "보고서 작성", "코드 리뷰", "이메일 처리"];
 let logs = [];
+let memos = {};
 let currentUser = null;
 
 const todayDate = new Date();
@@ -312,14 +349,55 @@ function listenData() {
       const data = snap.data();
       if (data.tasks) tasks = data.tasks;
       if (data.logs) logs = data.logs;
+      if (data.memos) memos = data.memos;
     }
     renderTaskButtons();
     renderCalendar();
     renderLogs();
+    renderMemo();
     const tab1 = document.getElementById('tab1');
     if (tab1 && tab1.style.display !== 'none') renderManageList();
   });
 }
+
+// ---- SUB TABS ----
+window.switchSubTab = function(tab) {
+  document.getElementById('memoPanel').style.display = tab === 'memo' ? 'flex' : 'none';
+  document.getElementById('memoPanel').style.flexDirection = 'column';
+  document.getElementById('calPanel').style.display = tab === 'cal' ? 'block' : 'none';
+  document.getElementById('subTabMemo').classList.toggle('active', tab === 'memo');
+  document.getElementById('subTabCal').classList.toggle('active', tab === 'cal');
+  if (tab === 'cal') renderCalendar();
+};
+
+// ---- MEMO ----
+function renderMemo() {
+  const textarea = document.getElementById('memoText');
+  const label = document.getElementById('memoDateLabel');
+  if (!textarea) return;
+  textarea.value = memos[selectedDateStr] || '';
+  const [y,m,d] = selectedDateStr.split('-');
+  label.textContent = selectedDateStr === toDateStr(todayDate) ? '오늘' : `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
+}
+
+window.saveMemo = async function() {
+  if (!currentUser) return;
+  const text = document.getElementById('memoText').value;
+  const newMemos = { ...memos, [selectedDateStr]: text };
+  await setDoc(doc(db, 'users', currentUser.uid), { memos: newMemos }, { merge: true });
+};
+
+// 자동 저장 (3초 디바운스)
+let memoSaveTimer = null;
+document.addEventListener('DOMContentLoaded', () => {
+  const textarea = document.getElementById('memoText');
+  if (textarea) {
+    textarea.addEventListener('input', () => {
+      clearTimeout(memoSaveTimer);
+      memoSaveTimer = setTimeout(() => window.saveMemo(), 3000);
+    });
+  }
+});
 
 // ---- CLOCK ----
 function updateLiveClock() {
@@ -361,7 +439,7 @@ function renderCalendar() {
 }
 window.calNav = function(dir) { calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() + dir, 1); renderCalendar(); };
 window.selectDate = function(ds) {
-  selectedDateStr = ds; renderCalendar(); renderLogs();
+  selectedDateStr = ds; renderCalendar(); renderLogs(); renderMemo();
   const [y,m,d] = ds.split('-');
   document.getElementById('logDateLabel').textContent = ds === toDateStr(todayDate) ? '오늘' : `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
 };
