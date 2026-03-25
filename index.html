@@ -193,7 +193,7 @@
     <div class="clock-row">
       <div class="live-clock" id="liveClock"></div>
       <div style="display:flex;flex-direction:column;align-items:center;position:relative;top:-5px;">
-        <span style="font-size:9px;color:#bbb;letter-spacing:0.05em;">ver.5</span>
+        <span style="font-size:9px;color:#bbb;letter-spacing:0.05em;">ver.6</span>
         <button class="gear-btn" style="top:0;" onclick="switchTab(1)" title="업무 목록 관리">⚙️</button>
       </div>
     </div>
@@ -348,12 +348,22 @@ async function saveLogs() {
   await setDoc(doc(db, 'users', currentUser.uid), { logs }, { merge: true });
 }
 function listenData() {
-  onSnapshot(doc(db, 'users', currentUser.uid), snap => {
+  onSnapshot(doc(db, 'users', currentUser.uid), async snap => {
     if (snap.exists()) {
       const data = snap.data();
       if (data.tasks) tasks = data.tasks;
       if (data.logs) logs = data.logs;
-      if (data.memo !== undefined) memo = data.memo;
+      if (data.memo !== undefined) {
+        memo = data.memo;
+      } else if (data.memos) {
+        // 마이그레이션: 날짜별 메모 → 단일 메모
+        const combined = Object.entries(data.memos)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, text]) => `[${date}]\n${text}`)
+          .join('\n\n');
+        memo = combined;
+        await setDoc(doc(db, 'users', currentUser.uid), { memo: combined }, { merge: true });
+      }
     }
     renderTaskButtons();
     renderCalendar();
