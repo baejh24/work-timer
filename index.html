@@ -193,7 +193,7 @@
     <div class="clock-row">
       <div class="live-clock" id="liveClock"></div>
       <div style="display:flex;flex-direction:column;align-items:center;position:relative;top:-5px;">
-        <span style="font-size:9px;color:#bbb;letter-spacing:0.05em;">ver.4</span>
+        <span style="font-size:9px;color:#bbb;letter-spacing:0.05em;">ver.5</span>
         <button class="gear-btn" style="top:0;" onclick="switchTab(1)" title="업무 목록 관리">⚙️</button>
       </div>
     </div>
@@ -295,7 +295,7 @@ const db = getFirestore(app);
 
 let tasks = ["회의 준비", "보고서 작성", "코드 리뷰", "이메일 처리"];
 let logs = [];
-let memos = {};
+let memo = '';
 let currentUser = null;
 
 const todayDate = new Date();
@@ -353,7 +353,7 @@ function listenData() {
       const data = snap.data();
       if (data.tasks) tasks = data.tasks;
       if (data.logs) logs = data.logs;
-      if (data.memos) memos = data.memos;
+      if (data.memo !== undefined) memo = data.memo;
     }
     renderTaskButtons();
     renderCalendar();
@@ -377,18 +377,14 @@ window.switchSubTab = function(tab) {
 // ---- MEMO ----
 function renderMemo() {
   const textarea = document.getElementById('memoText');
-  const label = document.getElementById('memoDateLabel');
   if (!textarea) return;
-  textarea.value = memos[selectedDateStr] || '';
-  const [y,m,d] = selectedDateStr.split('-');
-  label.textContent = selectedDateStr === toDateStr(todayDate) ? '오늘' : `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
+  textarea.value = memo || '';
 }
 
 window.saveMemo = async function() {
   if (!currentUser) return;
   const text = document.getElementById('memoText').value;
-  const newMemos = { ...memos, [selectedDateStr]: text };
-  await setDoc(doc(db, 'users', currentUser.uid), { memos: newMemos }, { merge: true });
+  await setDoc(doc(db, 'users', currentUser.uid), { memo: text }, { merge: true });
 };
 
 // 자동 저장 (3초 디바운스)
@@ -443,7 +439,7 @@ function renderCalendar() {
 }
 window.calNav = function(dir) { calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth() + dir, 1); renderCalendar(); };
 window.selectDate = function(ds) {
-  selectedDateStr = ds; renderCalendar(); renderLogs(); renderMemo();
+  selectedDateStr = ds; renderCalendar(); renderLogs();
   const [y,m,d] = ds.split('-');
   document.getElementById('logDateLabel').textContent = ds === toDateStr(todayDate) ? '오늘' : `${y}년 ${parseInt(m)}월 ${parseInt(d)}일`;
 };
